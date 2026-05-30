@@ -697,20 +697,112 @@ function TopicClusters({ topics, firstDate, lastDate }) {
 }
 
 function Mixtape({ data }) {
-  const { labelA, labelB } = data;
+  const { labelA, labelB, warmthAvg, spanYears, sorryA, sorryB,
+          missA, missB, convA, convB, totalConvs, fingerprintA,
+          fingerprintB, friction } = data;
 
-  const intro = `You two communicate like a late-night radio station — warm, bilingual, sometimes crackling with static, but always back on frequency. The data shows a relationship that started intense, weathered real friction, and came out more loving on the other side. Your sound is not polished pop. It's soul, it's bolero, it's the kind of song you don't skip.`;
+  const isHighWarmth = parseFloat(warmthAvg) > 30;
+  const isAsymmetric = (convA / (convA + convB)) > 0.6 || (convA / (convA + convB)) < 0.4;
+  const isBilingual = parseFloat(fingerprintA?.spanishPct) > 5 || parseFloat(fingerprintB?.spanishPct) > 5;
+  const isHighTension = (friction?.total || 0) > 50;
+  const isHealing = friction?.conflictByYear?.length > 1 &&
+    friction.conflictByYear[friction.conflictByYear.length-1].count < friction.conflictByYear[0].count;
+  const longingGap = Math.abs(missA - missB) > 100;
+  const isLong = parseFloat(spanYears) > 2;
+  const isShort = parseFloat(spanYears) < 1;
+  const highApologyGap = Math.abs(sorryA - sorryB) > 200;
 
-  const songs = [
-    { title: "Como La Flor", artist: "Selena", mood: "nostalgic", era: "90s", why: "Your Spanish code-switching runs deep and so does the emotional range — joy and hurt in the same breath. This is the song that lives in the gap between your warmth and your tension." },
-    { title: "Stay With Me", artist: "Sam Smith", mood: "longing", era: "10s", why: `One of you says "miss you" nearly 18x more than the other. This one's for the partner who reaches across distance constantly, without stopping.` },
-    { title: "Motownphilly", artist: "Boyz II Men", mood: "euphoric", era: "90s", why: "Your fun & humor numbers are real — you two are genuinely playful. This is the energy of a good day between you, the texts that are just vibes and laughter." },
-    { title: "La Llorona", artist: "Chavela Vargas", mood: "fierce", era: "60s", why: "High warmth, high tension. This song holds both without flinching. Ancient, dramatic, completely committed. That's your relationship archetype in four minutes." },
-    { title: "Make It Rain", artist: "Ed Sheeran", mood: "bittersweet", era: "10s", why: "For the silences. The data found real gaps — some spanning days. This song is what lives in the space between the last message and the one that finally breaks it open." },
-    { title: "Cariño", artist: "Los Destellos", mood: "tender", era: "70s", why: "For the partner who thinks of the other in large and small ways — steady, sweet, devoted in a quiet Peruvian cumbia kind of way." },
-    { title: "Cranes in the Sky", artist: "Solange", mood: "intimate", era: "10s", why: "Stress & Anxiety was your lowest topic cluster at 1.3% — you mostly protect each other from the weight. This song is for the rare moments you don't, when it gets real." },
-    { title: "Un Verano Sin Ti", artist: "Bad Bunny", mood: "hopeful", era: "20s", why: "Bilingual, from now, survived the hard years and the warmth grew. This is where you are. Summer without fear." },
-  ];
+  const pool = {
+    highWarmth: [
+      { title: "Make You Feel My Love", artist: "Adele", mood: "tender", era: "00s", why: `High warmth runs through every quarter of this relationship. This song captures love that doesn't announce itself — it just shows up.` },
+      { title: "Lover", artist: "Taylor Swift", mood: "euphoric", era: "10s", why: `Your warmth metrics stayed high across ${spanYears} years. This song is about choosing someone every single day.` },
+      { title: "All I Want", artist: "Kodaline", mood: "longing", era: "10s", why: `The affection in your messages is real and consistent. This song carries that same quiet devotion.` },
+      { title: "You Are the Best Thing", artist: "Ray LaMontagne", mood: "euphoric", era: "00s", why: `Sustained warmth over years is rare. This song knows exactly what that feels like.` },
+      { title: "Such Great Heights", artist: "The Postal Service", mood: "euphoric", era: "00s", why: `High warmth and high message volume — you two are genuinely present for each other. This song is that energy.` },
+      { title: "Can't Help Falling in Love", artist: "Elvis Presley", mood: "tender", era: "60s", why: `Some things don't change. High warmth in year ${Math.floor(parseFloat(spanYears))} is one of them.` },
+    ],
+    tension: [
+      { title: "Stubborn Love", artist: "The Lumineers", mood: "bittersweet", era: "10s", why: `The friction data shows real conflict over the years. This song is about staying anyway — which is what your data suggests you both did.` },
+      { title: "From Eden", artist: "Hozier", mood: "fierce", era: "10s", why: `High warmth and real tension together produce a specific intensity. This song was made for it.` },
+      { title: "The Night Will Always Win", artist: "Manchester Orchestra", mood: "fierce", era: "10s", why: `Passionate and combustible — your tension data has that quality. This song lives there.` },
+      { title: "Liability", artist: "Lorde", mood: "bittersweet", era: "10s", why: `For the friction that lives underneath the warmth. This song doesn't look away from it.` },
+      { title: "Motion Sickness", artist: "Phoebe Bridgers", mood: "bittersweet", era: "10s", why: `Real tension in a real relationship has a specific texture. This song has it.` },
+    ],
+    healing: [
+      { title: "Better", artist: "Regina Spektor", mood: "hopeful", era: "00s", why: `Your conflict frequency dropped meaningfully over time. Something got better. This song is about that — not perfection, just progress.` },
+      { title: "Grow As We Go", artist: "Ben Platt", mood: "hopeful", era: "10s", why: `The arc of your relationship shows real growth. Fewer friction episodes, sustained warmth. This song captures that trajectory.` },
+      { title: "Start Again", artist: "Audra Mae", mood: "hopeful", era: "10s", why: `The healing arc in your data is real. This song is for relationships that chose to keep going.` },
+      { title: "Keep Your Head Up", artist: "Ben Howard", mood: "hopeful", era: "10s", why: `Something shifted for the better in this relationship. The data shows it. This song feels like that shift.` },
+    ],
+    longing: [
+      { title: "I Will Follow You Into the Dark", artist: "Death Cab for Cutie", mood: "intimate", era: "00s", why: `The longing gap in this relationship is significant — one person reaches across distance far more. This song is for that person.` },
+      { title: "Gravity", artist: "Sara Bareilles", mood: "longing", era: "00s", why: `One person is pulled toward the other more consistently in this relationship. This song is for that pull.` },
+      { title: "Far Away", artist: "Nickelback", mood: "longing", era: "00s", why: `The miss you asymmetry is real and meaningful. One person carries the distance harder.` },
+      { title: "The Night I Lost You", artist: "Tom Odell", mood: "longing", era: "10s", why: `For the one who reaches first, reaches more, reaches harder. You know who you are.` },
+      { title: "Skinny Love", artist: "Bon Iver", mood: "bittersweet", era: "00s", why: `The longing in this data has weight to it. This song carries the same weight.` },
+    ],
+    bilingual: [
+      { title: "Bésame Mucho", artist: "Andrea Bocelli & Dulce Pontes", mood: "tender", era: "90s", why: `Your conversations move between English and Spanish naturally. This song lives in that same bilingual emotional space.` },
+      { title: "Ojitos Lindos", artist: "Bad Bunny & Bomba Estéreo", mood: "euphoric", era: "20s", why: `Your bilingual dynamic has a specific modern Latin feel. This song captures that frequency.` },
+      { title: "Un Verano Sin Ti", artist: "Bad Bunny", mood: "hopeful", era: "20s", why: `For the relationship that code-switches and code-feels — this is where you are right now.` },
+      { title: "Tú Foto", artist: "Residente & Tego Calderón", mood: "longing", era: "00s", why: `For a relationship that lives between two languages — this is the Spanish-language side of your emotional fingerprint.` },
+      { title: "Como La Flor", artist: "Selena", mood: "nostalgic", era: "90s", why: `Spanish code-switching runs through this relationship. Joy and hurt in the same breath — this song holds both.` },
+      { title: "La Bikina", artist: "Rubén Fuentes", mood: "nostalgic", era: "60s", why: `For the bilingual warmth that runs through this relationship — this classic carries that feeling across generations.` },
+    ],
+    longRelationship: [
+      { title: "The Book of Love", artist: "Peter Gabriel", mood: "tender", era: "00s", why: `${spanYears} years of messages. That's a whole book. This song knows what that weight feels like.` },
+      { title: "First Day of My Life", artist: "Bright Eyes", mood: "tender", era: "00s", why: `A long relationship that still has warmth in it is rare. This song celebrates exactly that.` },
+      { title: "Ho Hey", artist: "The Lumineers", mood: "euphoric", era: "10s", why: `${spanYears} years in and the warmth is still there. This song is for that.` },
+      { title: "Holocene", artist: "Bon Iver", mood: "nostalgic", era: "10s", why: `For a relationship long enough to have its own geography. This song has that sense of vast, quiet time.` },
+    ],
+    shortRelationship: [
+      { title: "Electric Love", artist: "BØRNS", mood: "euphoric", era: "10s", why: `Early relationship energy — this song captures that specific electricity.` },
+      { title: "Honeybee", artist: "The Head and the Heart", mood: "tender", era: "10s", why: `New and warm and still figuring it out. This song knows that feeling.` },
+    ],
+    asymmetric: [
+      { title: "Chasing Pavements", artist: "Adele", mood: "bittersweet", era: "00s", why: `One person initiates significantly more in this relationship. That asymmetry has a specific emotional weight this song understands.` },
+      { title: "Waiting Game", artist: "Banks", mood: "bittersweet", era: "10s", why: `The initiation gap is real. One person is doing more of the reaching. This song is for them.` },
+      { title: "The One That Got Away", artist: "Katy Perry", mood: "nostalgic", era: "10s", why: `Asymmetric investment has a specific emotional signature — this song knows it.` },
+    ],
+    highApology: [
+      { title: "Sorry", artist: "Justin Bieber", mood: "bittersweet", era: "10s", why: `The apology data in this relationship is significant — one person says sorry far more. This song lives in that dynamic.` },
+      { title: "Back to Black", artist: "Amy Winehouse", mood: "fierce", era: "00s", why: `The repair asymmetry in your data tells a story. This song doesn't sugarcoat it.` },
+    ],
+    universal: [
+      { title: "Bloom", artist: "The Paper Kites", mood: "intimate", era: "10s", why: `For a relationship with real depth — this song sits in the quiet moments between the big ones.` },
+      { title: "Turning Page", artist: "Sleeping At Last", mood: "hopeful", era: "10s", why: `For this relationship, right now, after everything. This is where you are.` },
+      { title: "Rome", artist: "Dermot Kennedy", mood: "tender", era: "10s", why: `For the relationship that keeps choosing itself. This song is that choice.` },
+      { title: "Yellow", artist: "Coldplay", mood: "tender", era: "00s", why: `Some songs just fit. This is one of them — for a relationship with real light in it.` },
+      { title: "Atlas Hands", artist: "Benjamin Francis Leftwich", mood: "intimate", era: "10s", why: `For the quiet architecture of a real relationship. This song understands that structure.` },
+      { title: "Flightless Bird", artist: "Iron & Wine", mood: "nostalgic", era: "00s", why: `For relationships that have their own weight and their own weather. This song has both.` },
+      { title: "Re: Stacks", artist: "Bon Iver", mood: "intimate", era: "00s", why: `For the version of this relationship that lives in the in-between moments. This song is those moments.` },
+      { title: "The Walk", artist: "Mayer Hawthorne", mood: "euphoric", era: "10s", why: `For a relationship that has rhythm and warmth. This song has both.` },
+    ],
+  };
+
+  const playlist = [];
+  const used = new Set();
+  const pick = (arr) => {
+    const available = arr.filter(s => !used.has(s.title));
+    if (!available.length) return;
+    const idx = Math.floor(Math.random() * available.length);
+    const song = available[idx];
+    used.add(song.title);
+    playlist.push(song);
+  };
+
+  if (isBilingual) { pick(pool.bilingual); pick(pool.bilingual); }
+  if (isHighWarmth) pick(pool.highWarmth);
+  if (isHighTension) pick(pool.tension);
+  if (isHealing) pick(pool.healing);
+  if (longingGap) pick(pool.longing);
+  if (isAsymmetric) pick(pool.asymmetric);
+  if (isLong) pick(pool.longRelationship);
+  if (isShort) pick(pool.shortRelationship);
+  if (highApologyGap) pick(pool.highApology);
+  while (playlist.length < 8) pick(pool.universal);
+
+  const intro = `${labelA} and ${labelB} — ${spanYears} years, ${isHighWarmth ? "high warmth" : "steady warmth"}${isHighTension ? ", real tension" : ""}${isBilingual ? ", bilingual" : ""}. ${isHealing ? "The friction is trending down — something got better." : ""} ${longingGap ? "One of you reaches across distance significantly more." : ""} Here's what your data sounds like.`;
 
   const moodColors = {
     tender: "#f7a97e", longing: "#b87ef7", euphoric: "#e8c547",
@@ -725,21 +817,15 @@ function Mixtape({ data }) {
         <div style={{ fontSize: 10, letterSpacing: 4, color: "#444", textTransform: "uppercase", fontFamily: "monospace" }}>Your Mixtape</div>
         <div style={{ flex: 1, height: 1, background: "#1a1a1a" }} />
       </div>
-
-      {/* intro letter */}
       <div style={{ background: "#0e0e0e", border: "1px solid #e8c547", borderRadius: 12, padding: "20px 24px" }}>
         <div style={{ fontSize: 10, letterSpacing: 3, color: "#e8c547", textTransform: "uppercase", fontFamily: "monospace", marginBottom: 10 }}>A note on your sound</div>
         <div style={{ fontSize: 14, color: "#999", lineHeight: 1.7 }}>{intro}</div>
       </div>
-
-      {/* songs */}
-      {songs.map((song, i) => {
+      {playlist.slice(0, 8).map((song, i) => {
         const moodColor = moodColors[song.mood] || "#888";
         return (
           <div key={i} style={{ background: "#0d0d0d", border: "1px solid #1a1a1a", borderRadius: 12, padding: "16px 20px", display: "flex", gap: 16, alignItems: "flex-start" }}>
-            <div style={{ width: 36, height: 36, borderRadius: 8, background: "#111", border: `1px solid ${moodColor}44`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: "#555", flexShrink: 0 }}>
-              {i + 1}
-            </div>
+            <div style={{ width: 36, height: 36, borderRadius: 8, background: "#111", border: `1px solid ${moodColor}44`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: "#555", flexShrink: 0 }}>{i + 1}</div>
             <div style={{ flex: 1 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
                 <div>
@@ -756,11 +842,102 @@ function Mixtape({ data }) {
           </div>
         );
       })}
+    </div>
+  );
+}
 
-      <div style={{ background: "#0d0d0d", border: "1px solid #1a1a1a", borderRadius: 10, padding: "14px 20px", display: "flex", alignItems: "center", gap: 10 }}>
-        <div style={{ fontSize: 11, color: "#333", fontFamily: "monospace" }}>✦</div>
-        <div style={{ fontSize: 11, color: "#333" }}>Dynamic mixtape generation coming in Mirror v0.3 — personalized to every relationship's unique fingerprint.</div>
+function Paywall({ onUnlock }) {
+  const STRIPE_LINK = "https://buy.stripe.com/test_aFa3co5V03kggnDflo4Vy00";
+  const PROMO_CODE = "MIRROR2026";
+  const [code, setCode] = useState("");
+  const [error, setError] = useState("");
+  const [showCode, setShowCode] = useState(false);
+
+  const handleCode = () => {
+    if (code.trim().toUpperCase() === PROMO_CODE) {
+      onUnlock();
+    } else {
+      setError("That code isn't valid. Try again.");
+      setTimeout(() => setError(""), 2000);
+    }
+  };
+
+  return (
+    <div style={{
+      margin: "24px 0",
+      background: "#0e0e0e",
+      border: "1px solid #e8c547",
+      borderRadius: 14,
+      padding: "28px 24px",
+      textAlign: "center",
+      position: "relative",
+      overflow: "hidden",
+    }}>
+      <div style={{
+        position: "absolute", inset: 0, opacity: 0.06,
+        background: "repeating-linear-gradient(0deg, #e8c547 0px, #e8c547 1px, transparent 1px, transparent 20px)",
+        pointerEvents: "none",
+      }} />
+      <div style={{ fontSize: 28, marginBottom: 12 }}>🔍</div>
+      <div style={{ fontSize: 18, fontWeight: 700, color: "#fff", marginBottom: 8 }}>
+        There's more in your data
       </div>
+      <div style={{ fontSize: 13, color: "#666", lineHeight: 1.7, marginBottom: 24, maxWidth: 380, margin: "0 auto 24px" }}>
+        Friction & Repair, Communication Fingerprint, Silence Map, Topic Clusters, and your Mixtape are waiting. One time, yours to keep.
+      </div>
+      <a
+        href={STRIPE_LINK}
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{
+          display: "inline-block",
+          background: "#e8c547", color: "#000",
+          borderRadius: 8, padding: "13px 32px",
+          fontSize: 15, fontWeight: 700,
+          textDecoration: "none", letterSpacing: 0.3,
+          marginBottom: 16,
+        }}
+      >
+        Go deeper — $12
+      </a>
+      <div style={{ fontSize: 11, color: "#333", marginBottom: 20 }}>one time · no subscription · no data stored</div>
+
+      {/* promo code section */}
+      {!showCode ? (
+        <button
+          onClick={() => setShowCode(true)}
+          style={{ background: "none", border: "none", color: "#333", fontSize: 11, cursor: "pointer", textDecoration: "underline" }}
+        >
+          Have a promo code?
+        </button>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+          <div style={{ display: "flex", gap: 8 }}>
+            <input
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleCode()}
+              placeholder="Enter code"
+              style={{
+                background: "#111", border: "1px solid #333", color: "#fff",
+                borderRadius: 6, padding: "8px 12px", fontSize: 13,
+                fontFamily: "monospace", letterSpacing: 1, width: 140,
+                outline: "none",
+              }}
+            />
+            <button
+              onClick={handleCode}
+              style={{
+                background: "#222", border: "1px solid #333", color: "#888",
+                borderRadius: 6, padding: "8px 14px", fontSize: 12, cursor: "pointer",
+              }}
+            >
+              Apply
+            </button>
+          </div>
+          {error && <div style={{ fontSize: 11, color: "#e85447" }}>{error}</div>}
+        </div>
+      )}
     </div>
   );
 }
@@ -981,6 +1158,7 @@ function Dashboard({ data, onReset }) {
   } = data;
 
   const [relType, setRelType] = useState("romantic");
+  const [unlocked, setUnlocked] = useState(false);
 
   const peakHour = byHour.indexOf(Math.max(...byHour));
   const peakLabel = peakHour === 0 ? "midnight" : peakHour < 12 ? `${peakHour}am` : peakHour === 12 ? "noon" : `${peakHour - 12}pm`;
@@ -1088,7 +1266,11 @@ function Dashboard({ data, onReset }) {
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
           <StatCard label="Expressed Longing (miss you)">
             <BarPair labelA={labelA} labelB={labelB} valA={missA} valB={missB} color="#b87ef7" />
-            <div style={{ fontSize: 11, color: "#555" }}>Who reaches across distance more</div>
+            <div style={{ fontSize: 11, color: "#555" }}>
+              {missA > missB * 2 ? `${labelA} expresses longing significantly more` :
+               missB > missA * 2 ? `${labelB} expresses longing significantly more` :
+               "Both reach across distance in similar measure"}
+            </div>
           </StatCard>
 
           <StatCard label="Avg Message Length">
@@ -1102,7 +1284,13 @@ function Dashboard({ data, onReset }) {
                 <div style={{ fontSize: 11, color: "#555" }}>{labelB} chars</div>
               </div>
             </div>
-            <div style={{ fontSize: 11, color: "#555" }}>Similar length = similar communication style</div>
+            <div style={{ fontSize: 11, color: "#555" }}>
+              {Math.abs(parseInt(avgLenA) - parseInt(avgLenB)) < 10
+                ? "Very similar message lengths — matched communication energy"
+                : parseInt(avgLenA) > parseInt(avgLenB)
+                ? `${labelA} writes longer messages on average`
+                : `${labelB} writes longer messages on average`}
+            </div>
           </StatCard>
         </div>
 
@@ -1110,7 +1298,13 @@ function Dashboard({ data, onReset }) {
         <StatCard label={`When You Talk · Peak: ${peakLabel}`}>
           <HourChart byHour={byHour} />
           <div style={{ fontSize: 11, color: "#555" }}>
-            Gold bars = late afternoon peak (4–7pm). When apart is when you talk most.
+            {peakHour >= 16 && peakHour <= 19
+              ? `Late afternoon is your peak — you talk most when apart during the day`
+              : peakHour >= 20 || peakHour <= 2
+              ? `Evening and night is when you connect most`
+              : peakHour >= 8 && peakHour <= 12
+              ? `Mornings are your peak — you start the day talking to each other`
+              : `Your peak communication window is around ${peakLabel}`}
           </div>
         </StatCard>
 
@@ -1119,37 +1313,62 @@ function Dashboard({ data, onReset }) {
           <StatCard label={`Warmth Over Time · avg ${warmthAvg}% of messages`} accent>
             <WarmthChart trend={warmthTrend} />
             <div style={{ fontSize: 11, color: "#555" }}>
-              Each point = one quarter. Higher = more affection language per message.
+              {parseFloat(warmthAvg) > 35
+                ? "Consistently high warmth across the relationship — affection is a constant, not a phase"
+                : parseFloat(warmthAvg) > 20
+                ? "Steady warmth throughout — care is expressed regularly even if quietly"
+                : "Warmth is present but expressed more through actions than words in text"}
             </div>
           </StatCard>
         </div>
 
-        {/* friction & repair */}
-        {data.friction && (
-          <FrictionRepair data={data.friction} labelA={labelA} labelB={labelB} />
-        )}
+        {/* premium content — blurred until unlocked */}
+        <div style={{ position: "relative", marginTop: 8 }}>
 
-        {/* communication fingerprint */}
-        {data.fingerprintA && (
-          <CommunicationFingerprint fpA={data.fingerprintA} fpB={data.fingerprintB} labelA={labelA} labelB={labelB} />
-        )}
+          {/* the actual premium content — always rendered, blurred when locked */}
+          <div style={{
+            filter: unlocked ? "none" : "blur(4px)",
+            opacity: unlocked ? 1 : 0.6,
+            pointerEvents: unlocked ? "auto" : "none",
+            transition: "filter 0.4s ease, opacity 0.4s ease",
+            userSelect: unlocked ? "auto" : "none",
+          }}>
+            {data.friction && (
+              <FrictionRepair data={data.friction} labelA={labelA} labelB={labelB} />
+            )}
+            {data.fingerprintA && (
+              <CommunicationFingerprint fpA={data.fingerprintA} fpB={data.fingerprintB} labelA={labelA} labelB={labelB} />
+            )}
+            {data.silences && (
+              <SilenceMap silences={data.silences} labelA={labelA} labelB={labelB} firstDate={firstDate} lastDate={lastDate} />
+            )}
+            {data.topics && (
+              <TopicClusters topics={data.topics} firstDate={firstDate} lastDate={lastDate} />
+            )}
+            <Mixtape data={data} />
+          </div>
 
-        {/* silence map */}
-        {data.silences && (
-          <SilenceMap silences={data.silences} labelA={labelA} labelB={labelB} firstDate={firstDate} lastDate={lastDate} />
-        )}
-
-        {/* topic clusters */}
-        {data.topics && (
-          <TopicClusters topics={data.topics} firstDate={firstDate} lastDate={lastDate} />
-        )}
-
-        {/* mixtape */}
-        <Mixtape data={data} />
+          {/* paywall overlay — sits on top of blurred content when locked */}
+          {!unlocked && (
+            <div style={{
+              position: "absolute",
+              top: 0, left: 0, right: 0, bottom: 0,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "flex-start",
+              paddingTop: 48,
+              background: "linear-gradient(to bottom, transparent 0%, #080808 40%)",
+              zIndex: 10,
+            }}>
+              <Paywall onUnlock={() => setUnlocked(true)} />
+            </div>
+          )}
+        </div>
 
         {/* footer */}
         <div style={{ marginTop: 40, textAlign: "center", fontSize: 11, color: "#2a2a2a", fontFamily: "monospace" }}>
-          processed locally · nothing left this device · mirror v0.2
+          processed locally · nothing left this device · mirror v0.4
         </div>
 
       </div>

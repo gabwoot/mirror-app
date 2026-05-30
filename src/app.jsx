@@ -878,6 +878,93 @@ function UploadScreen({ onAnalyze }) {
   );
 }
 
+// ── Relationship type reframing ───────────────────────────────────────────────
+const REL_TYPES = [
+  { id: "romantic", label: "💛 Romantic Partner" },
+  { id: "friendship", label: "🤝 Friendship" },
+  { id: "family", label: "👨‍👩‍👧 Family" },
+  { id: "situationship", label: "🌀 Situationship" },
+];
+
+function reframeArchetype(archetype, archetypeDesc, type) {
+  // Rewrite the archetype label and description based on relationship type
+  // so the same data patterns read correctly in different contexts
+  if (type === "romantic") return { label: archetype, desc: archetypeDesc };
+
+  if (type === "friendship") {
+    if (archetype.includes("High Warmth") && archetype.includes("Asymmetric")) {
+      return {
+        label: "High Warmth · One-Sided Effort",
+        desc: "This is a genuinely warm friendship, but one person does most of the reaching out. That's worth noticing — not as a judgment, but as information about where the energy flows.",
+      };
+    }
+    if (archetype.includes("High Warmth · Balanced")) {
+      return {
+        label: "High Warmth · Mutual",
+        desc: "A rare friendship — both people show up consistently, express care, and keep the connection alive equally. That kind of balance doesn't happen by accident.",
+      };
+    }
+    return {
+      label: "Steady Friendship",
+      desc: "A reliable, low-drama connection. The warmth is real even if it's expressed quietly. Not every friendship needs to be intense to be meaningful.",
+    };
+  }
+
+  if (type === "family") {
+    if (archetype.includes("High Warmth") && archetype.includes("Asymmetric")) {
+      return {
+        label: "Warm · One Person Carries It",
+        desc: "There's real affection in this family relationship, but one person does most of the initiating and reaching. That's a common family dynamic — doesn't make it less real, but it's worth seeing clearly.",
+      };
+    }
+    if (archetype.includes("High Warmth · Balanced")) {
+      return {
+        label: "Warm & Reciprocal",
+        desc: "Both people show up for this relationship in roughly equal measure. For a family connection, that's actually meaningful — it means the effort is mutual, not assumed.",
+      };
+    }
+    return {
+      label: "Functional Family Connection",
+      desc: "Communication is practical and consistent. The relationship works — it just expresses care more through action than words.",
+    };
+  }
+
+  if (type === "situationship") {
+    if (archetype.includes("High Warmth") && archetype.includes("Asymmetric")) {
+      return {
+        label: "Hot & Uneven",
+        desc: "High warmth, but one person is clearly more invested. In a situationship, that imbalance tends to define everything — who has the power, who gets hurt, who leaves first.",
+      };
+    }
+    if (archetype.includes("High Warmth · Balanced")) {
+      return {
+        label: "Mutually Entangled",
+        desc: "Both people are equally involved, which in a situationship means equally confused. The warmth is real. The definition isn't.",
+      };
+    }
+    return {
+      label: "Low Heat · Ambiguous",
+      desc: "The connection is real but the feelings run cool. This might be fading, or it might just be how this particular situationship operates.",
+    };
+  }
+
+  return { label: archetype, desc: archetypeDesc };
+}
+
+function reframeInitiation(type) {
+  if (type === "friendship") return "who keeps the friendship alive";
+  if (type === "family") return "who reaches out first";
+  if (type === "situationship") return "who has the power — they text less";
+  return "who reaches out first";
+}
+
+function reframeAffection(type) {
+  if (type === "friendship") return "Warmth in Text";
+  if (type === "family") return "Affection Expressed";
+  if (type === "situationship") return "Romantic Language";
+  return "Affection in Text";
+}
+
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 function Dashboard({ data, onReset }) {
   const {
@@ -893,8 +980,14 @@ function Dashboard({ data, onReset }) {
     warmthAvg, archetype, archetypeDesc,
   } = data;
 
+  const [relType, setRelType] = useState("romantic");
+
   const peakHour = byHour.indexOf(Math.max(...byHour));
   const peakLabel = peakHour === 0 ? "midnight" : peakHour < 12 ? `${peakHour}am` : peakHour === 12 ? "noon" : `${peakHour - 12}pm`;
+
+  const { label: archetypeLabel, desc: archetypeDescription } = reframeArchetype(archetype, archetypeDesc, relType);
+  const initiationLabel = reframeInitiation(relType);
+  const affectionLabel = reframeAffection(relType);
 
   return (
     <div style={{
@@ -904,7 +997,7 @@ function Dashboard({ data, onReset }) {
       <div style={{ maxWidth: 720, margin: "0 auto" }}>
 
         {/* header */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 40 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24 }}>
           <div>
             <div style={{ fontSize: 10, letterSpacing: 6, color: "#444", textTransform: "uppercase", fontFamily: "monospace", marginBottom: 6 }}>digital exhaust · mirror</div>
             <div style={{ fontSize: 28, fontWeight: 800, letterSpacing: -1 }}>
@@ -919,14 +1012,40 @@ function Dashboard({ data, onReset }) {
           </button>
         </div>
 
+        {/* relationship type selector */}
+        <div style={{ marginBottom: 24 }}>
+          <div style={{ fontSize: 10, letterSpacing: 2, color: "#444", textTransform: "uppercase", fontFamily: "monospace", marginBottom: 10 }}>This is a…</div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {REL_TYPES.map(({ id, label }) => (
+              <button key={id} onClick={() => setRelType(id)} style={{
+                background: relType === id ? "#e8c547" : "#111",
+                color: relType === id ? "#000" : "#555",
+                border: `1px solid ${relType === id ? "#e8c547" : "#222"}`,
+                borderRadius: 20, padding: "6px 14px", fontSize: 12,
+                cursor: "pointer", fontWeight: relType === id ? 700 : 400,
+                transition: "all 0.15s ease",
+              }}>
+                {label}
+              </button>
+            ))}
+          </div>
+          {relType !== "romantic" && (
+            <div style={{ fontSize: 11, color: "#444", marginTop: 8, fontStyle: "italic" }}>
+              Lens adjusted — same data, reframed for this relationship type.
+            </div>
+          )}
+        </div>
+
         {/* archetype */}
         <div style={{
           background: "#0e0e0e", border: "1px solid #e8c547", borderRadius: 14,
           padding: "24px 28px", marginBottom: 24,
         }}>
-          <div style={{ fontSize: 10, letterSpacing: 3, color: "#e8c547", textTransform: "uppercase", fontFamily: "monospace", marginBottom: 10 }}>Relationship Archetype</div>
-          <div style={{ fontSize: 22, fontWeight: 700, marginBottom: 8 }}>{archetype}</div>
-          <div style={{ fontSize: 14, color: "#888", lineHeight: 1.6 }}>{archetypeDesc}</div>
+          <div style={{ fontSize: 10, letterSpacing: 3, color: "#e8c547", textTransform: "uppercase", fontFamily: "monospace", marginBottom: 10 }}>
+            {relType === "romantic" ? "Relationship Archetype" : relType === "friendship" ? "Friendship Archetype" : relType === "family" ? "Family Dynamic" : "Situationship Type"}
+          </div>
+          <div style={{ fontSize: 22, fontWeight: 700, marginBottom: 8 }}>{archetypeLabel}</div>
+          <div style={{ fontSize: 14, color: "#888", lineHeight: 1.6 }}>{archetypeDescription}</div>
         </div>
 
         {/* grid */}
@@ -942,21 +1061,24 @@ function Dashboard({ data, onReset }) {
           <StatCard label="Who Starts Conversations">
             <BarPair labelA={labelA} labelB={labelB} valA={convA} valB={convB} color="#7eb8f7" />
             <div style={{ fontSize: 11, color: "#555" }}>
-              {labelA} initiates {pct(convA, convB)}% of {fmt(totalConvs)} conversations
+              {labelA} initiates {pct(convA, convB)}% — {initiationLabel}
             </div>
           </StatCard>
 
-          <StatCard label="Affection in Text">
+          <StatCard label={affectionLabel}>
             <BarPair labelA={labelA} labelB={labelB} valA={warmA} valB={warmB} color="#f77eb8" />
             <div style={{ fontSize: 11, color: "#555" }}>
-              Messages containing love, baby, mi amor, miss you…
+              {relType === "romantic" ? "Messages containing love, baby, mi amor, miss you…" :
+               relType === "friendship" ? "Messages containing warmth, care, and appreciation" :
+               relType === "family" ? "Affectionate language across the relationship" :
+               "Romantic and intimate language — tells you who's caught feelings"}
             </div>
           </StatCard>
 
           <StatCard label="Apologies">
             <BarPair labelA={labelA} labelB={labelB} valA={sorryA} valB={sorryB} color="#f7a97e" />
             <div style={{ fontSize: 11, color: "#555" }}>
-              Who says sorry more — repair vs. avoidance?
+              {relType === "situationship" ? "Who apologizes more — usually means who cares more" : "Who says sorry more — repair vs. avoidance?"}
             </div>
           </StatCard>
 

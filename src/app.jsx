@@ -813,6 +813,20 @@ function Mixtape({ data }) {
 
 function Paywall({ onUnlock }) {
   const STRIPE_LINK = "https://buy.stripe.com/test_aFa3co5V03kggnDflo4Vy00";
+  const PROMO_CODE = "MIRROR2026";
+  const [code, setCode] = useState("");
+  const [error, setError] = useState("");
+  const [showCode, setShowCode] = useState(false);
+
+  const handleCode = () => {
+    if (code.trim().toUpperCase() === PROMO_CODE) {
+      onUnlock();
+    } else {
+      setError("That code isn't valid. Try again.");
+      setTimeout(() => setError(""), 2000);
+    }
+  };
+
   return (
     <div style={{
       margin: "24px 0",
@@ -851,18 +865,44 @@ function Paywall({ onUnlock }) {
       >
         Go deeper — $12
       </a>
-      <div style={{ fontSize: 11, color: "#333" }}>one time · no subscription · no data stored</div>
-      <button
-        onClick={onUnlock}
-        style={{
-          display: "block", margin: "16px auto 0",
-          background: "none", border: "none",
-          color: "#333", fontSize: 11, cursor: "pointer",
-          textDecoration: "underline",
-        }}
-      >
-        I already paid — unlock
-      </button>
+      <div style={{ fontSize: 11, color: "#333", marginBottom: 20 }}>one time · no subscription · no data stored</div>
+
+      {/* promo code section */}
+      {!showCode ? (
+        <button
+          onClick={() => setShowCode(true)}
+          style={{ background: "none", border: "none", color: "#333", fontSize: 11, cursor: "pointer", textDecoration: "underline" }}
+        >
+          Have a promo code?
+        </button>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+          <div style={{ display: "flex", gap: 8 }}>
+            <input
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleCode()}
+              placeholder="Enter code"
+              style={{
+                background: "#111", border: "1px solid #333", color: "#fff",
+                borderRadius: 6, padding: "8px 12px", fontSize: 13,
+                fontFamily: "monospace", letterSpacing: 1, width: 140,
+                outline: "none",
+              }}
+            />
+            <button
+              onClick={handleCode}
+              style={{
+                background: "#222", border: "1px solid #333", color: "#888",
+                borderRadius: 6, padding: "8px 14px", fontSize: 12, cursor: "pointer",
+              }}
+            >
+              Apply
+            </button>
+          </div>
+          {error && <div style={{ fontSize: 11, color: "#e85447" }}>{error}</div>}
+        </div>
+      )}
     </div>
   );
 }
@@ -1247,39 +1287,53 @@ function Dashboard({ data, onReset }) {
           </StatCard>
         </div>
 
-        {/* paywall or premium content */}
-        {!unlocked ? (
-          <Paywall onUnlock={() => setUnlocked(true)} />
-        ) : (
-          <>
-            {/* friction & repair */}
+        {/* premium content — blurred until unlocked */}
+        <div style={{ position: "relative", marginTop: 8 }}>
+
+          {/* the actual premium content — always rendered, blurred when locked */}
+          <div style={{
+            filter: unlocked ? "none" : "blur(4px)",
+            opacity: unlocked ? 1 : 0.6,
+            pointerEvents: unlocked ? "auto" : "none",
+            transition: "filter 0.4s ease, opacity 0.4s ease",
+            userSelect: unlocked ? "auto" : "none",
+          }}>
             {data.friction && (
               <FrictionRepair data={data.friction} labelA={labelA} labelB={labelB} />
             )}
-
-            {/* communication fingerprint */}
             {data.fingerprintA && (
               <CommunicationFingerprint fpA={data.fingerprintA} fpB={data.fingerprintB} labelA={labelA} labelB={labelB} />
             )}
-
-            {/* silence map */}
             {data.silences && (
               <SilenceMap silences={data.silences} labelA={labelA} labelB={labelB} firstDate={firstDate} lastDate={lastDate} />
             )}
-
-            {/* topic clusters */}
             {data.topics && (
               <TopicClusters topics={data.topics} firstDate={firstDate} lastDate={lastDate} />
             )}
-
-            {/* mixtape */}
             <Mixtape data={data} />
-          </>
-        )}
+          </div>
+
+          {/* paywall overlay — sits on top of blurred content when locked */}
+          {!unlocked && (
+            <div style={{
+              position: "absolute",
+              top: 0, left: 0, right: 0, bottom: 0,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "flex-start",
+              paddingTop: 48,
+              background: "linear-gradient(to bottom, transparent 0%, #080808 40%)",
+              zIndex: 10,
+            }}>
+              <Paywall onUnlock={() => setUnlocked(true)} />
+            </div>
+          )}
+        </div>
 
         {/* footer */}
         <div style={{ marginTop: 40, textAlign: "center", fontSize: 11, color: "#2a2a2a", fontFamily: "monospace" }}>
-          processed locally · nothing left this device · mirror v0.2
+          processed locally · nothing left this device · mirror v0.4
         </div>
 
       </div>

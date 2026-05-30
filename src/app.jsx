@@ -765,6 +765,68 @@ function Mixtape({ data }) {
   );
 }
 
+function Paywall() {
+  const [unlocked, setUnlocked] = useState(false);
+  const STRIPE_LINK = "https://buy.stripe.com/test_aFa3co5V03kggnDflo4Vy00";
+
+  if (unlocked) return null;
+
+  return (
+    <div style={{
+      margin: "24px 0",
+      background: "#0e0e0e",
+      border: "1px solid #e8c547",
+      borderRadius: 14,
+      padding: "28px 24px",
+      textAlign: "center",
+      position: "relative",
+      overflow: "hidden",
+    }}>
+      {/* blurred preview behind */}
+      <div style={{
+        position: "absolute", inset: 0, opacity: 0.06,
+        background: "repeating-linear-gradient(0deg, #e8c547 0px, #e8c547 1px, transparent 1px, transparent 20px)",
+        pointerEvents: "none",
+      }} />
+
+      <div style={{ fontSize: 28, marginBottom: 12 }}>🔍</div>
+      <div style={{ fontSize: 18, fontWeight: 700, color: "#fff", marginBottom: 8 }}>
+        There's more in your data
+      </div>
+      <div style={{ fontSize: 13, color: "#666", lineHeight: 1.7, marginBottom: 24, maxWidth: 380, margin: "0 auto 24px" }}>
+        Friction & Repair, Communication Fingerprint, Silence Map, Topic Clusters, and your Mixtape are waiting. One time, yours to keep.
+      </div>
+      <a
+        href={STRIPE_LINK}
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{
+          display: "inline-block",
+          background: "#e8c547", color: "#000",
+          borderRadius: 8, padding: "13px 32px",
+          fontSize: 15, fontWeight: 700,
+          textDecoration: "none", letterSpacing: 0.3,
+          marginBottom: 16,
+        }}
+      >
+        Go deeper — $12
+      </a>
+      <div style={{ fontSize: 11, color: "#333" }}>one time · no subscription · no data stored</div>
+      <button
+        onClick={() => setUnlocked(true)}
+        style={{
+          display: "block", margin: "16px auto 0",
+          background: "none", border: "none",
+          color: "#333", fontSize: 11, cursor: "pointer",
+          textDecoration: "underline",
+        }}
+      >
+        I already paid — unlock
+      </button>
+    </div>
+  );
+}
+
 // ── Upload Screen ─────────────────────────────────────────────────────────────
 function UploadScreen({ onAnalyze }) {
   const [dragging, setDragging] = useState(false);
@@ -1123,6 +1185,9 @@ function Dashboard({ data, onReset }) {
             </div>
           </StatCard>
         </div>
+
+        {/* paywall */}
+        <Paywall />
 
         {/* friction & repair */}
         {data.friction && (

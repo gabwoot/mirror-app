@@ -847,7 +847,7 @@ function Mixtape({ data }) {
 }
 
 function Paywall({ onUnlock }) {
-  const STRIPE_LINK = "https://buy.stripe.com/test_aFa3co5V03kggnDflo4Vy00";
+  const STRIPE_LINK = "https://buy.stripe.com/test_aFa28k97ccUQ2wNgps4Vy01";
   const PROMO_CODE = "MIRROR2026";
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
@@ -898,9 +898,9 @@ function Paywall({ onUnlock }) {
           marginBottom: 16,
         }}
       >
-        Go deeper — $12
+        Go deeper — $5 beta
       </a>
-      <div style={{ fontSize: 11, color: "#333", marginBottom: 20 }}>one time · no subscription · no data stored</div>
+      <div style={{ fontSize: 11, color: "#333", marginBottom: 20 }}>beta pricing · one time · no subscription · no data stored</div>
 
       {/* promo code section */}
       {!showCode ? (

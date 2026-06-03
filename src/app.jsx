@@ -20,7 +20,6 @@ function parseWhatsApp(text) {
 function analyzeMessages(messages) {
   if (!messages.length) return null;
 
-  // Identify the two main participants
   const senderCounts = {};
   for (const m of messages) {
     senderCounts[m.sender] = (senderCounts[m.sender] || 0) + 1;
@@ -34,16 +33,13 @@ function analyzeMessages(messages) {
   const msgsA = messages.filter((m) => isA(m.sender));
   const msgsB = messages.filter((m) => !isA(m.sender));
 
-  // Date range
   const firstDate = messages[0].dt;
   const lastDate = messages[messages.length - 1].dt;
   const spanDays = Math.round((lastDate - firstDate) / 86400000);
   const spanYears = (spanDays / 365).toFixed(1);
 
-  // Initiation (conversation = gap > 2hrs)
   let convA = 0, convB = 0;
   let lastDt = messages[0].dt;
-  let lastSender = messages[0].sender;
   convA += isA(messages[0].sender) ? 1 : 0;
   convB += !isA(messages[0].sender) ? 1 : 0;
   for (let i = 1; i < messages.length; i++) {
@@ -52,36 +48,29 @@ function analyzeMessages(messages) {
       isA(messages[i].sender) ? convA++ : convB++;
     }
     lastDt = messages[i].dt;
-    lastSender = messages[i].sender;
   }
   const totalConvs = convA + convB;
 
-  // Affection terms
   const affectTerms = ["love you", "miss you", "my love", "baby", "mi amor", "te amo", "honey", "te extraño", "i love", "babe"];
   const countTerm = (msgs, terms) =>
     msgs.filter((m) => terms.some((t) => m.text.toLowerCase().includes(t))).length;
   const warmA = countTerm(msgsA, affectTerms);
   const warmB = countTerm(msgsB, affectTerms);
 
-  // Sorry
   const sorryA = msgsA.filter((m) => m.text.toLowerCase().includes("sorry")).length;
   const sorryB = msgsB.filter((m) => m.text.toLowerCase().includes("sorry")).length;
 
-  // Miss you
   const missA = msgsA.filter((m) => m.text.toLowerCase().includes("miss")).length;
   const missB = msgsB.filter((m) => m.text.toLowerCase().includes("miss")).length;
 
-  // Avg message length
   const avgLen = (msgs) => {
     const valid = msgs.filter((m) => !m.text.includes("omitted"));
     return valid.reduce((s, m) => s + m.text.length, 0) / (valid.length || 1);
   };
 
-  // Activity by hour
   const byHour = Array(24).fill(0);
   for (const m of messages) byHour[m.dt.getHours()]++;
 
-  // Warmth by quarter
   const quarters = {};
   for (const m of messages) {
     const q = `${m.dt.getFullYear()}-Q${Math.floor(m.dt.getMonth() / 3) + 1}`;
@@ -94,14 +83,11 @@ function analyzeMessages(messages) {
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([q, v]) => ({ q, rate: (v.warm / v.total) * 100 }));
 
-  // Derive label for shorter name display
   const labelA = nameA.split(" ")[0].replace(/[^\w]/g, "").slice(0, 12);
   const labelB = nameB.split(" ")[0].replace(/[^\w]/g, "").slice(0, 12);
 
-  // High-level archetype
   const warmthAvg = warmthTrend.reduce((s, x) => s + x.rate, 0) / (warmthTrend.length || 1);
   const initiationImbalance = Math.abs(convA / totalConvs - 0.5);
-  const sorryImbalance = Math.abs(sorryA / (sorryA + sorryB + 1) - 0.5);
 
   let archetype, archetypeDesc;
   if (warmthAvg > 35 && initiationImbalance > 0.15) {
@@ -118,7 +104,6 @@ function analyzeMessages(messages) {
     archetypeDesc = "Communication is task-focused. Warmth may live outside of text.";
   }
 
-  // ── Friction & Repair analysis ──────────────────────────────────────────────
   const conflictTerms = [
     "stop it","leave me","i'm done","im done","you always","you never",
     "why do you","don't do that","dont do that","not okay","upset with",
@@ -183,7 +168,6 @@ function analyzeMessages(messages) {
   const avgRepairMins = repairTimes.length ? Math.round(repairTimes.reduce((s,x)=>s+x,0)/repairTimes.length) : null;
   const avgDurationMins = episodes.length ? Math.round(episodes.reduce((s,e)=>s+e.durationMins,0)/episodes.length) : 0;
 
-  // ── Communication Style Fingerprint ─────────────────────────────────────────
   const fingerprint = (msgs) => {
     const valid = msgs.filter((m) => !m.text.includes("omitted") && m.text.length > 0);
     const questions = valid.filter((m) => m.text.includes("?")).length;
@@ -191,12 +175,10 @@ function analyzeMessages(messages) {
     const emojiRe = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u;
     const withEmoji = valid.filter((m) => emojiRe.test(m.text)).length;
     const lateNight = msgs.filter((m) => { const h = m.dt.getHours(); return h >= 0 && h < 4; }).length;
-    const lengths = valid.map((m) => m.text.length);
     const under20 = valid.filter((m) => m.text.length <= 20).length;
     const over100 = valid.filter((m) => m.text.length > 100).length;
     const spanishRe = /\b(amor|gracias|pero|porque|cuando|estoy|quiero|sabes|verdad|claro|también|siempre|nunca|noche|buenas|hola|qué|cómo|dónde)\b/i;
     const spanish = valid.filter((m) => spanishRe.test(m.text)).length;
-    // response times
     return {
       total: valid.length,
       questionPct: ((questions / valid.length) * 100).toFixed(1),
@@ -211,7 +193,6 @@ function analyzeMessages(messages) {
   const fingerprintA = fingerprint(msgsA);
   const fingerprintB = fingerprint(msgsB);
 
-  // ── Silence Map ──────────────────────────────────────────────────────────────
   const silences = [];
   for (let si = 1; si < messages.length; si++) {
     const gapHrs = (messages[si].dt - messages[si-1].dt) / 3600000;
@@ -233,7 +214,6 @@ function analyzeMessages(messages) {
   const whoResumesA = silences.filter((s) => s.whoResumed === "A").length;
   const whoResumesB = silences.filter((s) => s.whoResumed === "B").length;
 
-  // ── Topic Clusters (keyword-based) ───────────────────────────────────────────
   const topicDefs = [
     { label: "Food & Eating", emoji: "🍽️", terms: ["food","eat","hungry","dinner","lunch","breakfast","cook","restaurant","pizza","tacos","coffee","drink","meal","snack","order","doordash","ubereats"] },
     { label: "Money & Finances", emoji: "💸", terms: ["money","pay","rent","bill","bank","broke","cash","afford","expensive","cheap","budget","lyft","uber","work","income","loan","debt"] },
@@ -252,7 +232,6 @@ function analyzeMessages(messages) {
     return { ...td, count, pct: ((count / messages.length) * 100).toFixed(1) };
   }).sort((a, b) => b.count - a.count);
 
-  // topic shift over time — compare first half vs second half
   const midpoint = messages[Math.floor(messages.length / 2)].dt;
   const firstHalf = messages.filter((m) => m.dt < midpoint);
   const secondHalf = messages.filter((m) => m.dt >= midpoint);
@@ -295,11 +274,8 @@ function analyzeMessages(messages) {
   };
 }
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
 const pct = (a, b) => ((a / (a + b)) * 100).toFixed(0);
 const fmt = (n) => n.toLocaleString();
-
-// ── Components ────────────────────────────────────────────────────────────────
 
 function BarPair({ labelA, labelB, valA, valB, color = "#e8c547" }) {
   const total = valA + valB || 1;
@@ -364,7 +340,6 @@ function WarmthChart({ trend }) {
   const max = Math.max(...trend.map((t) => t.rate));
   const min = Math.min(...trend.map((t) => t.rate));
   const range = max - min || 1;
-  const w = 100 / trend.length;
   const points = trend.map((t, i) => {
     const x = (i / (trend.length - 1)) * 100;
     const y = 100 - ((t.rate - min) / range) * 80 - 10;
@@ -396,14 +371,12 @@ function FrictionRepair({ data, labelA, labelB }) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16, marginTop: 16 }}>
-      {/* section header */}
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 8 }}>
         <div style={{ flex: 1, height: 1, background: "#1a1a1a" }} />
         <div style={{ fontSize: 10, letterSpacing: 4, color: "#444", textTransform: "uppercase", fontFamily: "monospace" }}>Friction & Repair</div>
         <div style={{ flex: 1, height: 1, background: "#1a1a1a" }} />
       </div>
 
-      {/* the good news first */}
       <div style={{
         background: "#0a120a", border: "1px solid #2a4a2a", borderRadius: 12,
         padding: "20px 24px", display: "flex", flexDirection: "column", gap: 8,
@@ -420,7 +393,6 @@ function FrictionRepair({ data, labelA, labelB }) {
         </div>
       </div>
 
-      {/* year trend */}
       <StatCard label="Friction by Year">
         <div style={{ display: "flex", alignItems: "flex-end", gap: 6, height: 56 }}>
           {conflictByYear.map(({ year, count }) => (
@@ -437,7 +409,6 @@ function FrictionRepair({ data, labelA, labelB }) {
         </div>
       </StatCard>
 
-      {/* who starts, who repairs */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
         <StatCard label="Who Starts Friction">
           <BarPair labelA={labelA} labelB={labelB} valA={initA} valB={initB} color="#e85447" />
@@ -449,7 +420,6 @@ function FrictionRepair({ data, labelA, labelB }) {
         </StatCard>
       </div>
 
-      {/* timing stats */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
         <StatCard label="Time to First Repair">
           <div style={{ fontSize: 32, fontWeight: 800, color: "#e8c547" }}>
@@ -465,7 +435,6 @@ function FrictionRepair({ data, labelA, labelB }) {
         </StatCard>
       </div>
 
-      {/* seasonal pattern */}
       <StatCard label={`Seasonal Pattern · Hardest Month: ${hardestMonth}`}>
         <div style={{ display: "flex", alignItems: "flex-end", gap: 3, height: 48 }}>
           {byMonth.map((v, i) => (
@@ -525,7 +494,6 @@ function CommunicationFingerprint({ fpA, fpB, labelA, labelB }) {
     { label: "Spanish messages", valA: fpA.spanishPct, valB: fpB.spanishPct },
   ];
 
-  // derive style labels
   const styleA = [];
   const styleB = [];
   if (parseFloat(fpA.longMsgPct) > parseFloat(fpB.longMsgPct) * 1.3) styleA.push("Paragraph writer");
@@ -547,7 +515,6 @@ function CommunicationFingerprint({ fpA, fpB, labelA, labelB }) {
         <div style={{ flex: 1, height: 1, background: "#1a1a1a" }} />
       </div>
 
-      {/* style labels */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
         {[{ name: labelA, styles: styleA, color: "#e8c547" }, { name: labelB, styles: styleB, color: "#7eb8f7" }].map(({ name, styles, color }) => (
           <div key={name} style={{ background: "#0d0d0d", border: `1px solid #222`, borderRadius: 10, padding: "14px 16px" }}>
@@ -598,7 +565,6 @@ function SilenceMap({ silences, labelA, labelB, firstDate, lastDate }) {
           </div>
         </div>
 
-        {/* timeline visualization */}
         <div style={{ position: "relative", height: 24, background: "#111", borderRadius: 4, marginBottom: 16, overflow: "hidden" }}>
           {top10.map((s, i) => {
             const leftPct = ((s.start - firstDate) / totalSpanMs) * 100;
@@ -618,7 +584,6 @@ function SilenceMap({ silences, labelA, labelB, firstDate, lastDate }) {
           <span>{lastDate.getFullYear()}</span>
         </div>
 
-        {/* top silences list */}
         <div style={{ fontSize: 10, letterSpacing: 2, color: "#444", textTransform: "uppercase", fontFamily: "monospace", marginBottom: 10 }}>Longest silences</div>
         {top10.slice(0, 5).map((s, i) => (
           <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: "1px solid #111" }}>
@@ -645,7 +610,7 @@ function SilenceMap({ silences, labelA, labelB, firstDate, lastDate }) {
   );
 }
 
-function TopicClusters({ topics, firstDate, lastDate }) {
+function TopicClusters({ topics }) {
   const { counts, shift } = topics;
   const maxCount = Math.max(...counts.map((t) => t.count));
 
@@ -657,7 +622,6 @@ function TopicClusters({ topics, firstDate, lastDate }) {
         <div style={{ flex: 1, height: 1, background: "#1a1a1a" }} />
       </div>
 
-      {/* what you talk about */}
       <div style={{ background: "#0d0d0d", border: "1px solid #222", borderRadius: 12, padding: "20px 24px" }}>
         <div style={{ fontSize: 10, letterSpacing: 2, color: "#555", textTransform: "uppercase", fontFamily: "monospace", marginBottom: 16 }}>What you talk about</div>
         {counts.map((t) => (
@@ -672,7 +636,6 @@ function TopicClusters({ topics, firstDate, lastDate }) {
         ))}
       </div>
 
-      {/* what shifted over time */}
       <div style={{ background: "#0d0d0d", border: "1px solid #222", borderRadius: 12, padding: "20px 24px" }}>
         <div style={{ fontSize: 10, letterSpacing: 2, color: "#555", textTransform: "uppercase", fontFamily: "monospace", marginBottom: 4 }}>How your conversations changed</div>
         <div style={{ fontSize: 11, color: "#333", marginBottom: 16 }}>Early relationship vs. now — biggest shifts</div>
@@ -698,7 +661,7 @@ function TopicClusters({ topics, firstDate, lastDate }) {
 
 function Mixtape({ data }) {
   const { labelA, labelB, warmthAvg, spanYears, sorryA, sorryB,
-          missA, missB, convA, convB, totalConvs, fingerprintA,
+          missA, missB, convA, convB, fingerprintA,
           fingerprintB, friction } = data;
 
   const isHighWarmth = parseFloat(warmthAvg) > 30;
@@ -722,37 +685,28 @@ function Mixtape({ data }) {
       { title: "Can't Help Falling in Love", artist: "Elvis Presley", mood: "tender", era: "60s", why: `Some things don't change. High warmth in year ${Math.floor(parseFloat(spanYears))} is one of them.` },
     ],
     tension: [
-      { title: "Stubborn Love", artist: "The Lumineers", mood: "bittersweet", era: "10s", why: `The friction data shows real conflict over the years. This song is about staying anyway — which is what your data suggests you both did.` },
+      { title: "Stubborn Love", artist: "The Lumineers", mood: "bittersweet", era: "10s", why: `The friction data shows real conflict over the years. This song is about staying anyway.` },
       { title: "From Eden", artist: "Hozier", mood: "fierce", era: "10s", why: `High warmth and real tension together produce a specific intensity. This song was made for it.` },
-      { title: "The Night Will Always Win", artist: "Manchester Orchestra", mood: "fierce", era: "10s", why: `Passionate and combustible — your tension data has that quality. This song lives there.` },
       { title: "Liability", artist: "Lorde", mood: "bittersweet", era: "10s", why: `For the friction that lives underneath the warmth. This song doesn't look away from it.` },
       { title: "Motion Sickness", artist: "Phoebe Bridgers", mood: "bittersweet", era: "10s", why: `Real tension in a real relationship has a specific texture. This song has it.` },
     ],
     healing: [
-      { title: "Better", artist: "Regina Spektor", mood: "hopeful", era: "00s", why: `Your conflict frequency dropped meaningfully over time. Something got better. This song is about that — not perfection, just progress.` },
-      { title: "Grow As We Go", artist: "Ben Platt", mood: "hopeful", era: "10s", why: `The arc of your relationship shows real growth. Fewer friction episodes, sustained warmth. This song captures that trajectory.` },
-      { title: "Start Again", artist: "Audra Mae", mood: "hopeful", era: "10s", why: `The healing arc in your data is real. This song is for relationships that chose to keep going.` },
-      { title: "Keep Your Head Up", artist: "Ben Howard", mood: "hopeful", era: "10s", why: `Something shifted for the better in this relationship. The data shows it. This song feels like that shift.` },
+      { title: "Better", artist: "Regina Spektor", mood: "hopeful", era: "00s", why: `Your conflict frequency dropped meaningfully over time. Something got better. This song is about that.` },
+      { title: "Grow As We Go", artist: "Ben Platt", mood: "hopeful", era: "10s", why: `The arc of your relationship shows real growth. Fewer friction episodes, sustained warmth.` },
+      { title: "Keep Your Head Up", artist: "Ben Howard", mood: "hopeful", era: "10s", why: `Something shifted for the better in this relationship. The data shows it.` },
     ],
     longing: [
-      { title: "I Will Follow You Into the Dark", artist: "Death Cab for Cutie", mood: "intimate", era: "00s", why: `The longing gap in this relationship is significant — one person reaches across distance far more. This song is for that person.` },
+      { title: "I Will Follow You Into the Dark", artist: "Death Cab for Cutie", mood: "intimate", era: "00s", why: `The longing gap in this relationship is significant — one person reaches across distance far more.` },
       { title: "Gravity", artist: "Sara Bareilles", mood: "longing", era: "00s", why: `One person is pulled toward the other more consistently in this relationship. This song is for that pull.` },
-      { title: "Far Away", artist: "Nickelback", mood: "longing", era: "00s", why: `The miss you asymmetry is real and meaningful. One person carries the distance harder.` },
-      { title: "The Night I Lost You", artist: "Tom Odell", mood: "longing", era: "10s", why: `For the one who reaches first, reaches more, reaches harder. You know who you are.` },
       { title: "Skinny Love", artist: "Bon Iver", mood: "bittersweet", era: "00s", why: `The longing in this data has weight to it. This song carries the same weight.` },
     ],
     bilingual: [
       { title: "Bésame Mucho", artist: "Andrea Bocelli & Dulce Pontes", mood: "tender", era: "90s", why: `Your conversations move between English and Spanish naturally. This song lives in that same bilingual emotional space.` },
       { title: "Ojitos Lindos", artist: "Bad Bunny & Bomba Estéreo", mood: "euphoric", era: "20s", why: `Your bilingual dynamic has a specific modern Latin feel. This song captures that frequency.` },
-      { title: "Un Verano Sin Ti", artist: "Bad Bunny", mood: "hopeful", era: "20s", why: `For the relationship that code-switches and code-feels — this is where you are right now.` },
-      { title: "Tú Foto", artist: "Residente & Tego Calderón", mood: "longing", era: "00s", why: `For a relationship that lives between two languages — this is the Spanish-language side of your emotional fingerprint.` },
-      { title: "Como La Flor", artist: "Selena", mood: "nostalgic", era: "90s", why: `Spanish code-switching runs through this relationship. Joy and hurt in the same breath — this song holds both.` },
-      { title: "La Bikina", artist: "Rubén Fuentes", mood: "nostalgic", era: "60s", why: `For the bilingual warmth that runs through this relationship — this classic carries that feeling across generations.` },
+      { title: "Como La Flor", artist: "Selena", mood: "nostalgic", era: "90s", why: `Spanish code-switching runs through this relationship. Joy and hurt in the same breath.` },
     ],
     longRelationship: [
       { title: "The Book of Love", artist: "Peter Gabriel", mood: "tender", era: "00s", why: `${spanYears} years of messages. That's a whole book. This song knows what that weight feels like.` },
-      { title: "First Day of My Life", artist: "Bright Eyes", mood: "tender", era: "00s", why: `A long relationship that still has warmth in it is rare. This song celebrates exactly that.` },
-      { title: "Ho Hey", artist: "The Lumineers", mood: "euphoric", era: "10s", why: `${spanYears} years in and the warmth is still there. This song is for that.` },
       { title: "Holocene", artist: "Bon Iver", mood: "nostalgic", era: "10s", why: `For a relationship long enough to have its own geography. This song has that sense of vast, quiet time.` },
     ],
     shortRelationship: [
@@ -762,10 +716,9 @@ function Mixtape({ data }) {
     asymmetric: [
       { title: "Chasing Pavements", artist: "Adele", mood: "bittersweet", era: "00s", why: `One person initiates significantly more in this relationship. That asymmetry has a specific emotional weight this song understands.` },
       { title: "Waiting Game", artist: "Banks", mood: "bittersweet", era: "10s", why: `The initiation gap is real. One person is doing more of the reaching. This song is for them.` },
-      { title: "The One That Got Away", artist: "Katy Perry", mood: "nostalgic", era: "10s", why: `Asymmetric investment has a specific emotional signature — this song knows it.` },
     ],
     highApology: [
-      { title: "Sorry", artist: "Justin Bieber", mood: "bittersweet", era: "10s", why: `The apology data in this relationship is significant — one person says sorry far more. This song lives in that dynamic.` },
+      { title: "Sorry", artist: "Justin Bieber", mood: "bittersweet", era: "10s", why: `The apology data in this relationship is significant — one person says sorry far more.` },
       { title: "Back to Black", artist: "Amy Winehouse", mood: "fierce", era: "00s", why: `The repair asymmetry in your data tells a story. This song doesn't sugarcoat it.` },
     ],
     universal: [
@@ -774,9 +727,8 @@ function Mixtape({ data }) {
       { title: "Rome", artist: "Dermot Kennedy", mood: "tender", era: "10s", why: `For the relationship that keeps choosing itself. This song is that choice.` },
       { title: "Yellow", artist: "Coldplay", mood: "tender", era: "00s", why: `Some songs just fit. This is one of them — for a relationship with real light in it.` },
       { title: "Atlas Hands", artist: "Benjamin Francis Leftwich", mood: "intimate", era: "10s", why: `For the quiet architecture of a real relationship. This song understands that structure.` },
-      { title: "Flightless Bird", artist: "Iron & Wine", mood: "nostalgic", era: "00s", why: `For relationships that have their own weight and their own weather. This song has both.` },
-      { title: "Re: Stacks", artist: "Bon Iver", mood: "intimate", era: "00s", why: `For the version of this relationship that lives in the in-between moments. This song is those moments.` },
-      { title: "The Walk", artist: "Mayer Hawthorne", mood: "euphoric", era: "10s", why: `For a relationship that has rhythm and warmth. This song has both.` },
+      { title: "Flightless Bird", artist: "Iron & Wine", mood: "nostalgic", era: "00s", why: `For relationships that have their own weight and their own weather.` },
+      { title: "Re: Stacks", artist: "Bon Iver", mood: "intimate", era: "00s", why: `For the version of this relationship that lives in the in-between moments.` },
     ],
   };
 
@@ -846,8 +798,10 @@ function Mixtape({ data }) {
   );
 }
 
+// ── Paywall ───────────────────────────────────────────────────────────────────
 function Paywall({ onUnlock }) {
-  const STRIPE_LINK = "https://buy.stripe.com/test_aFa28k97ccUQ2wNgps4Vy01";
+  const STRIPE_SUBSCRIPTION = "https://buy.stripe.com/aFa3co5V03kggnDflo4Vy00";
+  const STRIPE_ONE_TIME = "https://buy.stripe.com/aFa28k97ccUQ2wNgps4Vy01";
   const PROMO_CODE = "MIRROR2026";
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
@@ -872,6 +826,8 @@ function Paywall({ onUnlock }) {
       textAlign: "center",
       position: "relative",
       overflow: "hidden",
+      width: "100%",
+      maxWidth: 420,
     }}>
       <div style={{
         position: "absolute", inset: 0, opacity: 0.06,
@@ -883,26 +839,54 @@ function Paywall({ onUnlock }) {
         There's more in your data
       </div>
       <div style={{ fontSize: 13, color: "#666", lineHeight: 1.7, marginBottom: 24, maxWidth: 380, margin: "0 auto 24px" }}>
-        Friction & Repair, Communication Fingerprint, Silence Map, Topic Clusters, and your Mixtape are waiting. One time, yours to keep.
+        Friction & Repair, Communication Fingerprint, Silence Map, and your Mixtape are waiting.
       </div>
+
+      {/* Subscription — primary */}
       <a
-        href={STRIPE_LINK}
+        href={STRIPE_SUBSCRIPTION}
         target="_blank"
         rel="noopener noreferrer"
         style={{
-          display: "inline-block",
+          display: "block",
           background: "#e8c547", color: "#000",
           borderRadius: 8, padding: "13px 32px",
           fontSize: 15, fontWeight: 700,
           textDecoration: "none", letterSpacing: 0.3,
-          marginBottom: 16,
+          marginBottom: 8,
         }}
       >
-        Go deeper — $5 beta
+        Unlimited Access Monthly Subscription — $11.99/mo
       </a>
-      <div style={{ fontSize: 11, color: "#333", marginBottom: 20 }}>beta pricing · one time · no subscription · no data stored</div>
+      <div style={{ fontSize: 11, color: "#444", marginBottom: 20 }}>unlimited analyses · cancel anytime · no data stored</div>
 
-      {/* promo code section */}
+      {/* Divider */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
+        <div style={{ flex: 1, height: 1, background: "#222" }} />
+        <span style={{ fontSize: 11, color: "#444", fontFamily: "monospace" }}>or</span>
+        <div style={{ flex: 1, height: 1, background: "#222" }} />
+      </div>
+
+      {/* One-time — secondary */}
+      <a
+        href={STRIPE_ONE_TIME}
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{
+          display: "block",
+          background: "transparent", color: "#f0ece4",
+          border: "1px solid #444",
+          borderRadius: 8, padding: "13px 32px",
+          fontSize: 14, fontWeight: 600,
+          textDecoration: "none", letterSpacing: 0.2,
+          marginBottom: 8,
+        }}
+      >
+        One Time, One Chat, Full Access — $4.99
+      </a>
+      <div style={{ fontSize: 11, color: "#444", marginBottom: 24 }}>this chat only · no subscription · no data stored</div>
+
+      {/* Promo code */}
       {!showCode ? (
         <button
           onClick={() => setShowCode(true)}
@@ -955,7 +939,6 @@ function UploadScreen({ onAnalyze }) {
     try {
       let text = "";
       if (file.name.endsWith(".zip")) {
-        // Use JSZip
         const JSZip = (await import("https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js")).default;
         const zip = await JSZip.loadAsync(file);
         const chatFile = Object.values(zip.files).find((f) => f.name.endsWith(".txt"));
@@ -991,7 +974,6 @@ function UploadScreen({ onAnalyze }) {
       minHeight: "100vh", background: "#080808", display: "flex", flexDirection: "column",
       alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "'DM Sans', sans-serif",
     }}>
-      {/* wordmark */}
       <div style={{ marginBottom: 64, textAlign: "center" }}>
         <div style={{ fontSize: 11, letterSpacing: 6, color: "#444", textTransform: "uppercase", marginBottom: 12, fontFamily: "monospace" }}>
           digital exhaust
@@ -1005,7 +987,6 @@ function UploadScreen({ onAnalyze }) {
         </div>
       </div>
 
-      {/* drop zone */}
       <div
         onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
         onDragLeave={() => setDragging(false)}
@@ -1034,7 +1015,6 @@ function UploadScreen({ onAnalyze }) {
         <div style={{ marginTop: 16, color: "#e85447", fontSize: 13, maxWidth: 440, textAlign: "center" }}>{error}</div>
       )}
 
-      {/* how to export */}
       <div style={{ marginTop: 48, maxWidth: 440, width: "100%" }}>
         <div style={{ fontSize: 10, letterSpacing: 3, color: "#333", textTransform: "uppercase", fontFamily: "monospace", marginBottom: 16 }}>
           How to export from WhatsApp
@@ -1064,67 +1044,34 @@ const REL_TYPES = [
 ];
 
 function reframeArchetype(archetype, archetypeDesc, type) {
-  // Rewrite the archetype label and description based on relationship type
-  // so the same data patterns read correctly in different contexts
   if (type === "romantic") return { label: archetype, desc: archetypeDesc };
-
   if (type === "friendship") {
     if (archetype.includes("High Warmth") && archetype.includes("Asymmetric")) {
-      return {
-        label: "High Warmth · One-Sided Effort",
-        desc: "This is a genuinely warm friendship, but one person does most of the reaching out. That's worth noticing — not as a judgment, but as information about where the energy flows.",
-      };
+      return { label: "High Warmth · One-Sided Effort", desc: "This is a genuinely warm friendship, but one person does most of the reaching out. That's worth noticing — not as a judgment, but as information about where the energy flows." };
     }
     if (archetype.includes("High Warmth · Balanced")) {
-      return {
-        label: "High Warmth · Mutual",
-        desc: "A rare friendship — both people show up consistently, express care, and keep the connection alive equally. That kind of balance doesn't happen by accident.",
-      };
+      return { label: "High Warmth · Mutual", desc: "A rare friendship — both people show up consistently, express care, and keep the connection alive equally." };
     }
-    return {
-      label: "Steady Friendship",
-      desc: "A reliable, low-drama connection. The warmth is real even if it's expressed quietly. Not every friendship needs to be intense to be meaningful.",
-    };
+    return { label: "Steady Friendship", desc: "A reliable, low-drama connection. The warmth is real even if it's expressed quietly." };
   }
-
   if (type === "family") {
     if (archetype.includes("High Warmth") && archetype.includes("Asymmetric")) {
-      return {
-        label: "Warm · One Person Carries It",
-        desc: "There's real affection in this family relationship, but one person does most of the initiating and reaching. That's a common family dynamic — doesn't make it less real, but it's worth seeing clearly.",
-      };
+      return { label: "Warm · One Person Carries It", desc: "There's real affection in this family relationship, but one person does most of the initiating and reaching." };
     }
     if (archetype.includes("High Warmth · Balanced")) {
-      return {
-        label: "Warm & Reciprocal",
-        desc: "Both people show up for this relationship in roughly equal measure. For a family connection, that's actually meaningful — it means the effort is mutual, not assumed.",
-      };
+      return { label: "Warm & Reciprocal", desc: "Both people show up for this relationship in roughly equal measure — meaningful for a family connection." };
     }
-    return {
-      label: "Functional Family Connection",
-      desc: "Communication is practical and consistent. The relationship works — it just expresses care more through action than words.",
-    };
+    return { label: "Functional Family Connection", desc: "Communication is practical and consistent. The relationship works — it just expresses care more through action than words." };
   }
-
   if (type === "situationship") {
     if (archetype.includes("High Warmth") && archetype.includes("Asymmetric")) {
-      return {
-        label: "Hot & Uneven",
-        desc: "High warmth, but one person is clearly more invested. In a situationship, that imbalance tends to define everything — who has the power, who gets hurt, who leaves first.",
-      };
+      return { label: "Hot & Uneven", desc: "High warmth, but one person is clearly more invested. In a situationship, that imbalance tends to define everything." };
     }
     if (archetype.includes("High Warmth · Balanced")) {
-      return {
-        label: "Mutually Entangled",
-        desc: "Both people are equally involved, which in a situationship means equally confused. The warmth is real. The definition isn't.",
-      };
+      return { label: "Mutually Entangled", desc: "Both people are equally involved, which in a situationship means equally confused. The warmth is real. The definition isn't." };
     }
-    return {
-      label: "Low Heat · Ambiguous",
-      desc: "The connection is real but the feelings run cool. This might be fading, or it might just be how this particular situationship operates.",
-    };
+    return { label: "Low Heat · Ambiguous", desc: "The connection is real but the feelings run cool. This might be fading, or it might just be how this particular situationship operates." };
   }
-
   return { label: archetype, desc: archetypeDesc };
 }
 
@@ -1174,7 +1121,6 @@ function Dashboard({ data, onReset }) {
     }}>
       <div style={{ maxWidth: 720, margin: "0 auto" }}>
 
-        {/* header */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24 }}>
           <div>
             <div style={{ fontSize: 10, letterSpacing: 6, color: "#444", textTransform: "uppercase", fontFamily: "monospace", marginBottom: 6 }}>digital exhaust · mirror</div>
@@ -1190,7 +1136,6 @@ function Dashboard({ data, onReset }) {
           </button>
         </div>
 
-        {/* relationship type selector */}
         <div style={{ marginBottom: 24 }}>
           <div style={{ fontSize: 10, letterSpacing: 2, color: "#444", textTransform: "uppercase", fontFamily: "monospace", marginBottom: 10 }}>This is a…</div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -1214,7 +1159,6 @@ function Dashboard({ data, onReset }) {
           )}
         </div>
 
-        {/* archetype */}
         <div style={{
           background: "#0e0e0e", border: "1px solid #e8c547", borderRadius: 14,
           padding: "24px 28px", marginBottom: 24,
@@ -1226,23 +1170,15 @@ function Dashboard({ data, onReset }) {
           <div style={{ fontSize: 14, color: "#888", lineHeight: 1.6 }}>{archetypeDescription}</div>
         </div>
 
-        {/* grid */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
-
           <StatCard label="Message Volume">
             <BarPair labelA={labelA} labelB={labelB} valA={countA} valB={countB} />
-            <div style={{ fontSize: 11, color: "#555" }}>
-              {labelA} sends {pct(countA, countB)}% of all messages
-            </div>
+            <div style={{ fontSize: 11, color: "#555" }}>{labelA} sends {pct(countA, countB)}% of all messages</div>
           </StatCard>
-
           <StatCard label="Who Starts Conversations">
             <BarPair labelA={labelA} labelB={labelB} valA={convA} valB={convB} color="#7eb8f7" />
-            <div style={{ fontSize: 11, color: "#555" }}>
-              {labelA} initiates {pct(convA, convB)}% — {initiationLabel}
-            </div>
+            <div style={{ fontSize: 11, color: "#555" }}>{labelA} initiates {pct(convA, convB)}% — {initiationLabel}</div>
           </StatCard>
-
           <StatCard label={affectionLabel}>
             <BarPair labelA={labelA} labelB={labelB} valA={warmA} valB={warmB} color="#f77eb8" />
             <div style={{ fontSize: 11, color: "#555" }}>
@@ -1252,17 +1188,14 @@ function Dashboard({ data, onReset }) {
                "Romantic and intimate language — tells you who's caught feelings"}
             </div>
           </StatCard>
-
           <StatCard label="Apologies">
             <BarPair labelA={labelA} labelB={labelB} valA={sorryA} valB={sorryB} color="#f7a97e" />
             <div style={{ fontSize: 11, color: "#555" }}>
               {relType === "situationship" ? "Who apologizes more — usually means who cares more" : "Who says sorry more — repair vs. avoidance?"}
             </div>
           </StatCard>
-
         </div>
 
-        {/* miss you + message length */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
           <StatCard label="Expressed Longing (miss you)">
             <BarPair labelA={labelA} labelB={labelB} valA={missA} valB={missB} color="#b87ef7" />
@@ -1272,7 +1205,6 @@ function Dashboard({ data, onReset }) {
                "Both reach across distance in similar measure"}
             </div>
           </StatCard>
-
           <StatCard label="Avg Message Length">
             <div style={{ display: "flex", gap: 20 }}>
               <div>
@@ -1294,38 +1226,32 @@ function Dashboard({ data, onReset }) {
           </StatCard>
         </div>
 
-        {/* activity by hour */}
         <StatCard label={`When You Talk · Peak: ${peakLabel}`}>
           <HourChart byHour={byHour} />
           <div style={{ fontSize: 11, color: "#555" }}>
-            {peakHour >= 16 && peakHour <= 19
-              ? `Late afternoon is your peak — you talk most when apart during the day`
-              : peakHour >= 20 || peakHour <= 2
-              ? `Evening and night is when you connect most`
-              : peakHour >= 8 && peakHour <= 12
-              ? `Mornings are your peak — you start the day talking to each other`
-              : `Your peak communication window is around ${peakLabel}`}
+            {peakHour >= 16 && peakHour <= 19 ? `Late afternoon is your peak — you talk most when apart during the day` :
+             peakHour >= 20 || peakHour <= 2 ? `Evening and night is when you connect most` :
+             peakHour >= 8 && peakHour <= 12 ? `Mornings are your peak — you start the day talking to each other` :
+             `Your peak communication window is around ${peakLabel}`}
           </div>
         </StatCard>
 
-        {/* warmth over time */}
         <div style={{ marginTop: 16 }}>
           <StatCard label={`Warmth Over Time · avg ${warmthAvg}% of messages`} accent>
             <WarmthChart trend={warmthTrend} />
             <div style={{ fontSize: 11, color: "#555" }}>
-              {parseFloat(warmthAvg) > 35
-                ? "Consistently high warmth across the relationship — affection is a constant, not a phase"
-                : parseFloat(warmthAvg) > 20
-                ? "Steady warmth throughout — care is expressed regularly even if quietly"
-                : "Warmth is present but expressed more through actions than words in text"}
+              {parseFloat(warmthAvg) > 35 ? "Consistently high warmth across the relationship — affection is a constant, not a phase" :
+               parseFloat(warmthAvg) > 20 ? "Steady warmth throughout — care is expressed regularly even if quietly" :
+               "Warmth is present but expressed more through actions than words in text"}
             </div>
           </StatCard>
         </div>
 
-        {/* premium content — blurred until unlocked */}
-        <div style={{ position: "relative", marginTop: 8 }}>
+        {/* Topic Clusters — free */}
+        {data.topics && <TopicClusters topics={data.topics} />}
 
-          {/* the actual premium content — always rendered, blurred when locked */}
+        {/* Paid content */}
+        <div style={{ position: "relative", marginTop: 8 }}>
           <div style={{
             filter: unlocked ? "none" : "blur(4px)",
             opacity: unlocked ? 1 : 0.6,
@@ -1333,31 +1259,17 @@ function Dashboard({ data, onReset }) {
             transition: "filter 0.4s ease, opacity 0.4s ease",
             userSelect: unlocked ? "auto" : "none",
           }}>
-            {data.friction && (
-              <FrictionRepair data={data.friction} labelA={labelA} labelB={labelB} />
-            )}
-            {data.fingerprintA && (
-              <CommunicationFingerprint fpA={data.fingerprintA} fpB={data.fingerprintB} labelA={labelA} labelB={labelB} />
-            )}
-            {data.silences && (
-              <SilenceMap silences={data.silences} labelA={labelA} labelB={labelB} firstDate={firstDate} lastDate={lastDate} />
-            )}
-            {data.topics && (
-              <TopicClusters topics={data.topics} firstDate={firstDate} lastDate={lastDate} />
-            )}
+            {data.friction && <FrictionRepair data={data.friction} labelA={labelA} labelB={labelB} />}
+            {data.fingerprintA && <CommunicationFingerprint fpA={data.fingerprintA} fpB={data.fingerprintB} labelA={labelA} labelB={labelB} />}
+            {data.silences && <SilenceMap silences={data.silences} labelA={labelA} labelB={labelB} firstDate={firstDate} lastDate={lastDate} />}
             <Mixtape data={data} />
           </div>
 
-          {/* paywall overlay — sits on top of blurred content when locked */}
           {!unlocked && (
             <div style={{
-              position: "absolute",
-              top: 0, left: 0, right: 0, bottom: 0,
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "flex-start",
-              paddingTop: 48,
+              position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
+              display: "flex", flexDirection: "column", alignItems: "center",
+              justifyContent: "flex-start", paddingTop: 48,
               background: "linear-gradient(to bottom, transparent 0%, #080808 40%)",
               zIndex: 10,
             }}>
@@ -1366,11 +1278,9 @@ function Dashboard({ data, onReset }) {
           )}
         </div>
 
-        {/* footer */}
         <div style={{ marginTop: 40, textAlign: "center", fontSize: 11, color: "#2a2a2a", fontFamily: "monospace" }}>
-          processed locally · nothing left this device · mirror v0.4
+          processed locally · nothing left this device · mirror/exhaust v0.4
         </div>
-
       </div>
     </div>
   );
@@ -1379,7 +1289,6 @@ function Dashboard({ data, onReset }) {
 // ── App ───────────────────────────────────────────────────────────────────────
 export default function App() {
   const [result, setResult] = useState(null);
-
   return result
     ? <Dashboard data={result} onReset={() => setResult(null)} />
     : <UploadScreen onAnalyze={setResult} />;
